@@ -1,5 +1,8 @@
-fastapi>=0.68.0,<0.69.0
-pydantic>=1.8.0,<2.0.0
-uvicorn>=0.15.0,<0.16.0
-cirq>=0.4.0
-quantastica-qps-api==0.9.7
+cirq==0.10.0
+fastapi~=0.68.2
+passlib==1.7.4
+pydantic==1.10.2
+quantastica_qps_api==0.9.7
+uvicorn==0.15.0
+python-jose~=1.0.0
+python-multipart>=0.0.5

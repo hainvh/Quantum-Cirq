@@ -2,9 +2,8 @@ from datetime import timedelta, datetime
 from typing import List, Union
 
 import cirq
-from fastapi import FastAPI, Request, Depends, HTTPException, status, UploadFile
+from fastapi import FastAPI, Request, Depends, HTTPException, status, UploadFile, File
 import uvicorn
-from fastapi.params import File
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import jwt, JWTError
 from passlib.context import CryptContext
@@ -74,7 +73,7 @@ class Probability(BaseModel):
 
 
 class UploadText(BaseModel):
-    data: str
+    data: str = ""
 
 
 def verify_password(plain_pass, hashed_pass):
@@ -164,17 +163,50 @@ async def jsonToQiskit(request: Request, current_user: User = Depends(get_curren
         raise HTTPException(status_code=400, detail="Inactive user")
     str = await request.json()
     c = cirq.quirk_json_to_circuit(str)
+    print(c)
     qasm = cirq.qasm(c)
     qisk = QPS.converter.convert(qasm, "qasm", "qiskit")
     return qisk
 
 
 @app.post("/qasm-to-qiskit", response_class=HTMLResponse)
-async def qasmToQiskit(data: UploadText, current_user: User = Depends(get_current_active_user)):
-    # if current_user.disabled:
-    #     raise HTTPException(status_code=400, detail="Inactive user")
-    if data:
-        return data
+async def qasmToQiskit(data: Request, current_user: User = Depends(get_current_active_user)):
+    if current_user.disabled:
+        raise HTTPException(status_code=400, detail="Inactive user")
+    qasm = await data.body()
+    decoded = qasm.decode("utf-8")
+    qiskitc = QPS.converter.convert(decoded, "qasm", "qiskit")
+    return qiskitc
+
+
+@app.post("/qasm-file-to-qiskit", response_class=HTMLResponse)
+async def qasmFileToQiskit(file: UploadFile = File(...)):
+    contents = file.file.read()
+    decoded = contents.decode("utf-8")
+    qiskitc = QPS.converter.convert(decoded, "qasm", "qiskit")
+    return qiskitc
+
+
+@app.post("/qasm-file-to-json", response_class=HTMLResponse)
+async def qasmFileToJson(file: UploadFile = File(...)):
+    contents = file.file.read()
+    decoded = contents.decode("utf-8")
+    json = QPS.converter.convert(decoded, "qasm", "quirk")
+    return json
+
+
+# qiskit to qasm not possible?
+# qiskit to json not possible?
+
+
+@app.post("/qasm-to-json", response_class=HTMLResponse)
+async def qasmToJson(request: Request, current_user: User = Depends(get_current_active_user)):
+    if current_user.disabled:
+        raise HTTPException(status_code=400, detail="Inactive user")
+    qasm = await request.body()
+    decoded = qasm.decode("utf-8")
+    json = QPS.converter.convert(decoded, "qasm", "quirk")
+    return json
 
 # @app.post("/statebar")
 # async def stateBarCalc(data: List[BarData]):
@@ -184,6 +216,7 @@ async def qasmToQiskit(data: UploadText, current_user: User = Depends(get_curren
 # @app.post("/prob")
 # async def getProb(data: Probability):
 #     return data
+
 
 @app.post("/token", response_model=Token)
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
