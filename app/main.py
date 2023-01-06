@@ -1,8 +1,11 @@
 from datetime import timedelta, datetime
+from os import remove
+from os.path import exists
 from typing import List, Union
 
 import app as app
 import cirq
+import script
 from cirq.contrib.qasm_import import circuit_from_qasm
 from fastapi import FastAPI, Request, Depends, HTTPException, status, UploadFile, File
 import uvicorn
@@ -236,6 +239,61 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
 @app.get("/users/me/", response_model=User)
 async def read_users_me(current_user: User = Depends(get_current_active_user)):
     return current_user
+
+
+@app.post("/test/qiskit", response_class=HTMLResponse)
+async def test(request: Request):
+    qisk = await request.body()
+    circ = qisk.decode("utf-8")
+    circ
+    # circ = QuantumCircuit(2)
+    # circ.h(0)
+    # circ.cx(0, 1)
+    # circ.measure_all()
+
+    # simulator = Aer.get_backend('aer_simulator')
+    # circ = transpile(circ, simulator)
+    #
+    # shots = 10000
+    #
+    # sim_stabilizer = Aer.get_backend('aer_simulator_stabilizer')
+    # job_stabilizer = sim_stabilizer.run(circ, shots=shots)
+    # counts_stabilizer = job_stabilizer.result().get_counts(0)
+    #
+    # sim_statevector = Aer.get_backend('aer_simulator_statevector')
+    # job_statevector = sim_statevector.run(circ, shots=shots)
+    # counts_statevector = job_statevector.result().get_counts(0)
+    #
+    # sim_density = Aer.get_backend('aer_simulator_density_matrix')
+    # job_density = sim_density.run(circ, shots=shots)
+    # counts_density = job_density.result().get_counts(0)
+    #
+    # sim_mps = Aer.get_backend('aer_simulator_matrix_product_state')
+    # job_mps = sim_mps.run(circ, shots=shots)
+    # counts_mps = job_mps.result().get_counts(0)
+    # print(plot_histogram([counts_stabilizer, counts_statevector, counts_density, counts_mps],
+    #                      title='Counts for different simulation methods',
+    #                      legend=['stabilizer', 'statevector',
+    #                              'density_matrix', 'matrix_product_state']))
+    # print(counts_statevector)
+    # return counts_statevector
+    return circ
+
+
+# write qasm -> qiskit later
+@app.post("/test/sh")
+async def shTest(request: Request):
+    if exists("generated.py"):
+        remove("generated.py")
+    fname = 'generated.py'
+    data = await request.body()
+    decoded = data.decode()
+    with open(fname, 'w') as f:
+        f.write(decoded)
+    import generated
+    data = generated.job_result.get_counts(generated.qc)
+    remove("generated.py")
+    return data
 
 
 if __name__ == "__main__":
