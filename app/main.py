@@ -197,7 +197,13 @@ async def qasmToJson(request: Request, current_user: User = Depends(get_current_
     decoded = qasm.decode("utf-8")
     cirqJson = circuit_from_qasm(decoded)
     json = cirq.contrib.quirk.circuit_to_quirk_url(cirqJson)
-    return json
+    jsonQuirk = json[35:len(json)]\
+        .replace("%7B", "{").replace("%7D", "}")\
+        .replace("%22", "\"")\
+        .replace("%3A", ":")\
+        .replace("%5B", "[").replace("%5D", "]").\
+        replace("%2C", ",")
+    return jsonQuirk
 
 
 @app.post("/token", response_model=Token)

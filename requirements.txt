@@ -4,7 +4,6 @@ passlib==1.7.4
 pydantic==1.10.2
 quantastica_qps_api==0.9.7
 uvicorn==0.15.0
-python-jose~=1.0.0
 python-multipart>=0.0.5
 bcrypt == 1.0.0
-
+python-jose==3.3.0
