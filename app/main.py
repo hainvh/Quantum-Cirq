@@ -2,6 +2,7 @@ from datetime import timedelta, datetime
 from typing import List, Union
 
 import cirq
+from cirq.contrib.qasm_import import circuit_from_qasm
 from fastapi import FastAPI, Request, Depends, HTTPException, status, UploadFile, File
 import uvicorn
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -16,6 +17,8 @@ SECRET_KEY = "963961892d0951644b3ed952deeef2ad6d77717822718dc4144ab06c63fca51a"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
+# username: username
+# password: secret
 fake_user = {
     "username": {
         "username": "username",
@@ -56,20 +59,6 @@ app = FastAPI()
 
 class Item(BaseModel):  # kế thừa từ class Basemodel và khai báo các biến
     link: str
-
-
-class BarData(BaseModel):
-    id: int
-    Probability: str
-    State: str
-
-
-class BarDataList(BarData):
-    data: List[BarData]
-
-
-class Probability(BaseModel):
-    data: str
 
 
 class UploadText(BaseModel):
@@ -191,7 +180,8 @@ async def qasmFileToQiskit(file: UploadFile = File(...)):
 async def qasmFileToJson(file: UploadFile = File(...)):
     contents = file.file.read()
     decoded = contents.decode("utf-8")
-    json = QPS.converter.convert(decoded, "qasm", "quirk")
+    cirqJson = circuit_from_qasm(decoded)
+    json = cirq.contrib.quirk.circuit_to_quirk_url(cirqJson)
     return json
 
 
@@ -205,17 +195,9 @@ async def qasmToJson(request: Request, current_user: User = Depends(get_current_
         raise HTTPException(status_code=400, detail="Inactive user")
     qasm = await request.body()
     decoded = qasm.decode("utf-8")
-    json = QPS.converter.convert(decoded, "qasm", "quirk")
+    cirqJson = circuit_from_qasm(decoded)
+    json = cirq.contrib.quirk.circuit_to_quirk_url(cirqJson)
     return json
-
-# @app.post("/statebar")
-# async def stateBarCalc(data: List[BarData]):
-#     return data
-#
-
-# @app.post("/prob")
-# async def getProb(data: Probability):
-#     return data
 
 
 @app.post("/token", response_model=Token)
