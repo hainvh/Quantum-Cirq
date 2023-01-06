@@ -7,3 +7,4 @@ uvicorn==0.15.0
 python-jose~=1.0.0
 python-multipart>=0.0.5
 bcrypt == 1.0.0
+
