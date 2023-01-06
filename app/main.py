@@ -1,6 +1,7 @@
 from datetime import timedelta, datetime
 from typing import List, Union
 
+import app as app
 import cirq
 from cirq.contrib.qasm_import import circuit_from_qasm
 from fastapi import FastAPI, Request, Depends, HTTPException, status, UploadFile, File
@@ -11,6 +12,20 @@ from passlib.context import CryptContext
 from pydantic import BaseModel
 from fastapi.responses import HTMLResponse
 from quantastica.qps_api import QPS
+from fastapi.middleware.cors import CORSMiddleware
+
+app = FastAPI()
+
+origins = ["*"]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 # Authentication
 SECRET_KEY = "963961892d0951644b3ed952deeef2ad6d77717822718dc4144ab06c63fca51a"
@@ -52,10 +67,6 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 # End of auth
-
-
-app = FastAPI()
-
 
 class Item(BaseModel):  # kế thừa từ class Basemodel và khai báo các biến
     link: str
