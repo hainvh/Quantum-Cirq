@@ -30,7 +30,7 @@ app.add_middleware(
 # Authentication
 SECRET_KEY = "963961892d0951644b3ed952deeef2ad6d77717822718dc4144ab06c63fca51a"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 24*60
 
 # username: username
 # password: secret
@@ -205,8 +205,13 @@ async def qasmToJson(request: Request, current_user: User = Depends(get_current_
     if current_user.disabled:
         raise HTTPException(status_code=400, detail="Inactive user")
     qasm = await request.body()
-    decoded = qasm.decode("utf-8")
+    print("typeof qasm", type(qasm))
+    print(qasm)
+    decoded = qasm.decode("utf-8").replace("\r", "")
+    print("decoded type ", type(decoded))
     cirqJson = circuit_from_qasm(decoded)
+    print(cirqJson)
+    print(type(cirqJson))
     json = cirq.contrib.quirk.circuit_to_quirk_url(cirqJson)
     jsonQuirk = json[35:len(json)]\
         .replace("%7B", "{").replace("%7D", "}")\
