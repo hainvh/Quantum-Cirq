@@ -158,18 +158,16 @@ async def read_item(name):
     return {"name": name}
 
 
-@app.post("/json-to-qasm",response_class=HTMLResponse)
+@app.post("/json-to-qasm", response_class=HTMLResponse)
 async def jsonToQASM(request: Request, current_user: User = Depends(get_current_active_user)):
     if current_user.disabled:
         raise HTTPException(status_code=400, detail="Inactive user")
-    # str = await request.json()
-    # c = cirq.quirk_json_to_circuit(str)
-    # code = cirq.qasm(c)
     try:
         request_json = await request.body()
         quirk_json = json.loads(request_json)
         circuit = cirq.quirk_json_to_circuit(quirk_json)
         qasm = cirq.qasm(circuit)
+        print(circuit)
         if re.search(b'\xe2\x80\xa2', request_json):
             pattern = r'// Operation: CH\((\d+),\s*(\d+)\).*(?:;\n\n)'
             match = re.search(pattern, qasm, flags=re.DOTALL)
@@ -240,17 +238,24 @@ async def qasmFileToJson(file: UploadFile = File(...)):
 async def qasmToJson(request: Request, current_user: User = Depends(get_current_active_user)):
     if current_user.disabled:
         raise HTTPException(status_code=400, detail="Inactive user")
+    q2j_dict = {
+        "%7B": "{", "%7D": "}", "%22": '\"', "%3A": ":", "%5B": "[", "%5D": "]", "%2C": ",",
+        '{"arg":"%280.5000%29%20pi","id":"Rzft"}': '"Z^½"', '{"arg":"%28-0.5000%29%20pi","id":"Rzft"}': '"Z^-½"',
+        '{"arg":"%280.5000%29%20pi","id":"Ryft"}': '"Y^½"', '{"arg":"%28-0.5000%29%20pi","id":"Ryft"}': '"Y^-½"',
+        '{"arg":"%280.5000%29%20pi","id":"Rxft"}': '"X^½"', '{"arg":"%28-0.5000%29%20pi","id":"Rxft"}': '"X^-½"',
+        '{"arg":"%280.2500%29%20pi","id":"Rzft"}': '"Z^¼"', '{"arg":"%28-0.2500%29%20pi","id":"Rzft"}': '"Z^-¼"',
+        '{"arg":"%280.2500%29%20pi","id":"Ryft"}': '"Y^¼"', '{"arg":"%28-0.2500%29%20pi","id":"Ryft"}': '"Y^-¼"',
+        '{"arg":"%280.2500%29%20pi","id":"Rxft"}': '"X^¼"', '{"arg":"%28-0.2500%29%20pi","id":"Rxft"}': '"X^-¼"'
+    }
     try:
         qasm = await request.body()
         decoded = qasm.decode("utf-8")
         cirqJson = circuit_from_qasm(decoded)
         json = cirq.contrib.quirk.circuit_to_quirk_url(cirqJson)
-        jsonQuirk = json[35:len(json)]\
-            .replace("%7B", "{").replace("%7D", "}")\
-            .replace("%22", "\"")\
-            .replace("%3A", ":")\
-            .replace("%5B", "[").replace("%5D", "]").\
-            replace("%2C", ",")
+        jsonQuirk = json[35:len(json)]
+        for key in q2j_dict:
+            if key in jsonQuirk:
+                jsonQuirk = jsonQuirk.replace(key, q2j_dict[key])
         return jsonQuirk
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
