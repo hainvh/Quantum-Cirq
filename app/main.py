@@ -1,7 +1,14 @@
+import json
+import re
+import sys
 from datetime import timedelta, datetime
 from os import remove
 from os.path import exists
 from typing import List, Union
+
+from qiskit import QuantumCircuit, execute
+from qiskit_aer import Aer
+from qiskit_ibm_runtime import QiskitRuntimeService
 
 import app as app
 import cirq
@@ -33,7 +40,9 @@ app.add_middleware(
 # Authentication
 SECRET_KEY = "963961892d0951644b3ed952deeef2ad6d77717822718dc4144ab06c63fca51a"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 24*60
+# QiskitRuntimeService.save_account(channel="ibm_quantum", token="7dc70fd10ae119499c27f664f114ad5527b4975c57be4074677d921f8f2e60bf7b4732f46e936edb0a84f4df8d6e09b8efadbd25b19fc9971e76cf197c6c8093")
+
 
 # username: username
 # password: secret
@@ -149,75 +158,115 @@ async def read_item(name):
     return {"name": name}
 
 
-@app.post("/json-to-qasm", response_class=HTMLResponse)
+@app.post("/json-to-qasm",response_class=HTMLResponse)
 async def jsonToQASM(request: Request, current_user: User = Depends(get_current_active_user)):
     if current_user.disabled:
         raise HTTPException(status_code=400, detail="Inactive user")
-    str = await request.json()
-    # quirkJson = json.loads(str)
-    c = cirq.quirk_json_to_circuit(str)
-    code = cirq.qasm(c)
-    return code
+    # str = await request.json()
+    # c = cirq.quirk_json_to_circuit(str)
+    # code = cirq.qasm(c)
+    try:
+        request_json = await request.body()
+        quirk_json = json.loads(request_json)
+        circuit = cirq.quirk_json_to_circuit(quirk_json)
+        qasm = cirq.qasm(circuit)
+        if re.search(b'\xe2\x80\xa2', request_json):
+            pattern = r'// Operation: CH\((\d+),\s*(\d+)\).*(?:;\n\n)'
+            match = re.search(pattern, qasm, flags=re.DOTALL)
+            if match:
+                result = re.sub(pattern, f'ch q[{match.group(1)}], q[{match.group(2)}];\n\n', qasm, flags=re.DOTALL)
+                return result
+        return qasm
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.post("/json-to-qiskit", response_class=HTMLResponse)
 async def jsonToQiskit(request: Request, current_user: User = Depends(get_current_active_user)):
     if current_user.disabled:
         raise HTTPException(status_code=400, detail="Inactive user")
-    str = await request.json()
-    c = cirq.quirk_json_to_circuit(str)
-    print(c)
-    qasm = cirq.qasm(c)
-    qisk = QPS.converter.convert(qasm, "qasm", "qiskit")
-    return qisk
+    # str = await request.json()
+    # c = cirq.quirk_json_to_circuit(str)
+    # qasm = cirq.qasm(c)
+    # qisk = QPS.converter.convert(qasm, "qasm", "qiskit")
+    # return qisk
+    try:
+        quirk_json = json.loads(await request.body())
+        circuit = cirq.quirk_json_to_circuit(quirk_json)
+        qasm = cirq.qasm(circuit)
+        qiskit_code = QPS.converter.convert(qasm, "qasm", "qiskit")
+        return qiskit_code
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.post("/qasm-to-qiskit", response_class=HTMLResponse)
 async def qasmToQiskit(data: Request, current_user: User = Depends(get_current_active_user)):
     if current_user.disabled:
         raise HTTPException(status_code=400, detail="Inactive user")
-    qasm = await data.body()
-    decoded = qasm.decode("utf-8")
-    qiskitc = QPS.converter.convert(decoded, "qasm", "qiskit")
-    return qiskitc
+    try:
+        qasm = await data.body()
+        decoded = qasm.decode("utf-8")
+        qiskitc = QPS.converter.convert(decoded, "qasm", "qiskit")
+        return qiskitc
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.post("/qasm-file-to-qiskit", response_class=HTMLResponse)
 async def qasmFileToQiskit(file: UploadFile = File(...)):
-    contents = file.file.read()
-    decoded = contents.decode("utf-8")
-    qiskitc = QPS.converter.convert(decoded, "qasm", "qiskit")
-    return qiskitc
+    try:
+        contents = file.file.read()
+        decoded = contents.decode("utf-8")
+        qiskitc = QPS.converter.convert(decoded, "qasm", "qiskit")
+        return qiskitc
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.post("/qasm-file-to-json", response_class=HTMLResponse)
 async def qasmFileToJson(file: UploadFile = File(...)):
-    contents = file.file.read()
-    decoded = contents.decode("utf-8")
-    cirqJson = circuit_from_qasm(decoded)
-    json = cirq.contrib.quirk.circuit_to_quirk_url(cirqJson)
-    return json
-
-
-# qiskit to qasm not possible?
-# qiskit to json not possible?
+    try:
+        contents = file.file.read()
+        decoded = contents.decode("utf-8")
+        cirqJson = circuit_from_qasm(decoded)
+        json = cirq.contrib.quirk.circuit_to_quirk_url(cirqJson)
+        return json
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.post("/qasm-to-json", response_class=HTMLResponse)
 async def qasmToJson(request: Request, current_user: User = Depends(get_current_active_user)):
     if current_user.disabled:
         raise HTTPException(status_code=400, detail="Inactive user")
+    try:
+        qasm = await request.body()
+        decoded = qasm.decode("utf-8")
+        cirqJson = circuit_from_qasm(decoded)
+        json = cirq.contrib.quirk.circuit_to_quirk_url(cirqJson)
+        jsonQuirk = json[35:len(json)]\
+            .replace("%7B", "{").replace("%7D", "}")\
+            .replace("%22", "\"")\
+            .replace("%3A", ":")\
+            .replace("%5B", "[").replace("%5D", "]").\
+            replace("%2C", ",")
+        return jsonQuirk
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/qasm-qiskit-run")
+async def qasmQiskitRun(request: Request):
     qasm = await request.body()
     decoded = qasm.decode("utf-8")
-    cirqJson = circuit_from_qasm(decoded)
-    json = cirq.contrib.quirk.circuit_to_quirk_url(cirqJson)
-    jsonQuirk = json[35:len(json)]\
-        .replace("%7B", "{").replace("%7D", "}")\
-        .replace("%22", "\"")\
-        .replace("%3A", ":")\
-        .replace("%5B", "[").replace("%5D", "]").\
-        replace("%2C", ",")
-    return jsonQuirk
+    qc = QuantumCircuit.from_qasm_str(decoded)
+    backend = Aer.get_backend('qasm_simulator')
+    job = execute(qc, backend=backend, shots=1024)
+    job_result = job.result()
+    result = job_result.get_counts(qc)
+
+    return result
 
 
 @app.post("/token", response_model=Token)
