@@ -328,7 +328,8 @@ job_result = job.result()
 statevector = job_result.get_statevector()
             """)
         import generated
-        fig = qsphere(generated.statevector)
+        fig = qsphere(generated.statevector, as_widget=True)
+        fig.update_layout(width=500, height=500)
         htmlText = fig._fig.to_html(full_html=False,include_plotlyjs=False)
         return htmlText
     except Exception as e:
