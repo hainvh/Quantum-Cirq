@@ -7,3 +7,6 @@ uvicorn==0.15.0
 python-multipart>=0.0.5
 bcrypt == 1.0.0
 python-jose==3.3.0
+kaleidoscope==0.2.0
+qiskit>=0.22.3
+qiskit_ibm_runtime
