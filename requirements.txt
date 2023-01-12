@@ -9,4 +9,5 @@ bcrypt == 1.0.0
 python-jose==3.3.0
 kaleidoscope==0.2.0
 qiskit>=0.22.3
-qiskit_ibm_runtime
+qiskit_ibm_runtime==0.8.0
+qiskit_aer==0.11.2
