@@ -27,6 +27,8 @@ from pydantic import BaseModel
 from fastapi.responses import HTMLResponse
 from quantastica.qps_api import QPS
 from fastapi.middleware.cors import CORSMiddleware
+from markupsafe import Markup
+
 
 app = FastAPI()
 
@@ -322,6 +324,7 @@ async def returnQSphere(request: Request):
         with open(file, "w") as f:
             f.write(decoded)
             f.write("""
+from qiskit import BasicAer
 backend = BasicAer.get_backend('statevector_simulator')
 job = execute(qc, backend=backend, shots=shots)
 job_result = job.result()
@@ -329,8 +332,8 @@ statevector = job_result.get_statevector()
             """)
         import generated
         fig = qsphere(generated.statevector)
-        htmlText = fig._fig.to_html(full_html=False,include_plotlyjs=False)
-        return htmlText
+        htmlText = fig._fig.to_html(full_html=False,include_plotlyjs="cdn")
+        return Markup(htmlText)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
