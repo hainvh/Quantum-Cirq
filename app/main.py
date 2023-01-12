@@ -218,6 +218,9 @@ async def qasmToQiskit(data: Request, current_user: User = Depends(get_current_a
         qasm = await data.body()
         decoded = qasm.decode("utf-8")
         qiskitc = QPS.converter.convert(decoded, "qasm", "qiskit")
+        # don't change the code_to_remove it breaks the .replace
+        code_to_remove = "backend = Aer.get_backend('qasm_simulator')\njob = execute(qc, backend=backend, shots=shots)\njob_result = job.result()\nprint(job_result.get_counts(qc))"
+        qiskitc = qiskitc.replace(code_to_remove, "")
         return qiskitc
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -363,6 +366,7 @@ async def shTest(request: Request):
     plot_state_qsphere(generated.psi).savefig("sphere.png") # 4 is decent
     plot_state_paulivec(generated.psi).savefig("paulivec.png")
     plot_bloch_multivector(generated.psi).savefig("bloch.png") # 4 is decent
+
     remove("generated.py")
     return data
 
