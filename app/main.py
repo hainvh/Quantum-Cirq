@@ -322,6 +322,7 @@ async def returnQSphere(request: Request):
         with open(file, "w") as f:
             f.write(decoded)
             f.write("""
+from qiskit import BasicAer
 backend = BasicAer.get_backend('statevector_simulator')
 job = execute(qc, backend=backend, shots=shots)
 job_result = job.result()
@@ -330,7 +331,8 @@ statevector = job_result.get_statevector()
         import generated
         fig = qsphere(generated.statevector, as_widget=True)
         fig.update_layout(width=500, height=500)
-        htmlText = fig._fig.to_html(full_html=False,include_plotlyjs=False)
+        # htmlText = fig._fig.to_html(full_html=False,include_plotlyjs=False)
+        htmlText = fig.to_html(full_html=False, include_plotlyjs=False)
         return htmlText
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
