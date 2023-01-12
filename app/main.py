@@ -1,12 +1,15 @@
 import json
 import re
 import sys
+import time
 from datetime import timedelta, datetime
 from os import remove
 from os.path import exists
 from typing import List, Union
 
 from qiskit import QuantumCircuit, execute
+from qiskit.visualization import plot_histogram, plot_state_city, plot_state_hinton, plot_state_qsphere, \
+    plot_state_paulivec, plot_bloch_multivector
 from qiskit_aer import Aer
 from qiskit_ibm_runtime import QiskitRuntimeService
 
@@ -162,18 +165,27 @@ async def read_item(name):
 async def jsonToQASM(request: Request, current_user: User = Depends(get_current_active_user)):
     if current_user.disabled:
         raise HTTPException(status_code=400, detail="Inactive user")
+    j2q_dict = {
+        "rz(pi*0.5)": "s", "rz(pi*-0.5)": "sdg",
+        "rz(pi*0.25)": "t", "rz(pi*-0.25)": "tdg"
+    }
     try:
         request_json = await request.body()
         quirk_json = json.loads(request_json)
         circuit = cirq.quirk_json_to_circuit(quirk_json)
         qasm = cirq.qasm(circuit)
-        print(circuit)
         if re.search(b'\xe2\x80\xa2', request_json):
-            pattern = r'// Operation: CH\((\d+),\s*(\d+)\).*(?:;\n\n)'
-            match = re.search(pattern, qasm, flags=re.DOTALL)
-            if match:
-                result = re.sub(pattern, f'ch q[{match.group(1)}], q[{match.group(2)}];\n\n', qasm, flags=re.DOTALL)
-                return result
+            qasm += "\n\n"
+            pattern = r'// Operation: C(\w+)\((\d+),\s*(\d+)\).*?(?:;\n\n)'
+            while True:
+                match = re.search(pattern, qasm, flags=re.DOTALL)
+                if match is None:
+                    break
+                qasm = re.sub(pattern, f'c{str.lower(match.group(1))} q[{match.group(2)}], q[{match.group(3)}];\n\n',
+                              qasm, flags=re.DOTALL, count=1)
+        for key in j2q_dict:
+            if key in qasm:
+                qasm = qasm.replace(key, j2q_dict[key])
         return qasm
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -206,6 +218,9 @@ async def qasmToQiskit(data: Request, current_user: User = Depends(get_current_a
         qasm = await data.body()
         decoded = qasm.decode("utf-8")
         qiskitc = QPS.converter.convert(decoded, "qasm", "qiskit")
+        # don't change the code_to_remove it breaks the .replace
+        code_to_remove = "backend = Aer.get_backend('qasm_simulator')\njob = execute(qc, backend=backend, shots=shots)\njob_result = job.result()\nprint(job_result.get_counts(qc))"
+        qiskitc = qiskitc.replace(code_to_remove, "")
         return qiskitc
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -299,7 +314,6 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)):
 async def test(request: Request):
     qisk = await request.body()
     circ = qisk.decode("utf-8")
-    circ
     # circ = QuantumCircuit(2)
     # circ.h(0)
     # circ.cx(0, 1)
@@ -345,7 +359,14 @@ async def shTest(request: Request):
     with open(fname, 'w') as f:
         f.write(decoded)
     import generated
-    data = generated.job_result.get_counts(generated.qc)
+    # data = generated.job_result.get_counts(generated.qc)
+    # plot_histogram(generated.count, title='Bell-State Counts')
+    plot_state_city(generated.psi).savefig('out.png')
+    plot_state_hinton(generated.psi).savefig('hinton.png')
+    plot_state_qsphere(generated.psi).savefig("sphere.png") # 4 is decent
+    plot_state_paulivec(generated.psi).savefig("paulivec.png")
+    plot_bloch_multivector(generated.psi).savefig("bloch.png") # 4 is decent
+
     remove("generated.py")
     return data
 
