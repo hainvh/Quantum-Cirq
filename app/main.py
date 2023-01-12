@@ -7,7 +7,8 @@ from os import remove
 from os.path import exists
 from typing import List, Union
 
-from qiskit import QuantumCircuit, execute
+from kaleidoscope import qsphere
+from qiskit import QuantumCircuit, execute, BasicAer
 from qiskit.visualization import plot_histogram, plot_state_city, plot_state_hinton, plot_state_qsphere, \
     plot_state_paulivec, plot_bloch_multivector
 from qiskit_aer import Aer
@@ -310,42 +311,28 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)):
     return current_user
 
 
-@app.post("/test/qiskit", response_class=HTMLResponse)
-async def test(request: Request):
-    qisk = await request.body()
-    circ = qisk.decode("utf-8")
-    # circ = QuantumCircuit(2)
-    # circ.h(0)
-    # circ.cx(0, 1)
-    # circ.measure_all()
-
-    # simulator = Aer.get_backend('aer_simulator')
-    # circ = transpile(circ, simulator)
-    #
-    # shots = 10000
-    #
-    # sim_stabilizer = Aer.get_backend('aer_simulator_stabilizer')
-    # job_stabilizer = sim_stabilizer.run(circ, shots=shots)
-    # counts_stabilizer = job_stabilizer.result().get_counts(0)
-    #
-    # sim_statevector = Aer.get_backend('aer_simulator_statevector')
-    # job_statevector = sim_statevector.run(circ, shots=shots)
-    # counts_statevector = job_statevector.result().get_counts(0)
-    #
-    # sim_density = Aer.get_backend('aer_simulator_density_matrix')
-    # job_density = sim_density.run(circ, shots=shots)
-    # counts_density = job_density.result().get_counts(0)
-    #
-    # sim_mps = Aer.get_backend('aer_simulator_matrix_product_state')
-    # job_mps = sim_mps.run(circ, shots=shots)
-    # counts_mps = job_mps.result().get_counts(0)
-    # print(plot_histogram([counts_stabilizer, counts_statevector, counts_density, counts_mps],
-    #                      title='Counts for different simulation methods',
-    #                      legend=['stabilizer', 'statevector',
-    #                              'density_matrix', 'matrix_product_state']))
-    # print(counts_statevector)
-    # return counts_statevector
-    return circ
+@app.post("/return-qsphere", response_class=HTMLResponse)
+async def returnQSphere(request: Request):
+    try:
+        if exists("generated.py"):
+            remove("generated.py")
+        file = "generated.py"
+        data = await request.body()
+        decoded = data.decode()
+        with open(file, "w") as f:
+            f.write(decoded)
+            f.write("""
+backend = BasicAer.get_backend('statevector_simulator')
+job = execute(qc, backend=backend, shots=shots)
+job_result = job.result()
+statevector = job_result.get_statevector()
+            """)
+        import generated
+        fig = qsphere(generated.statevector)
+        htmlText = fig._fig.to_html(full_html=False,include_plotlyjs=False)
+        return htmlText
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # write qasm -> qiskit later
