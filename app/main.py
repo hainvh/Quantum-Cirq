@@ -27,6 +27,8 @@ from pydantic import BaseModel
 from fastapi.responses import HTMLResponse
 from quantastica.qps_api import QPS
 from fastapi.middleware.cors import CORSMiddleware
+from markupsafe import Markup
+
 
 app = FastAPI()
 
