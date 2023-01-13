@@ -7,7 +7,7 @@ from os import remove
 from os.path import exists
 from typing import List, Union
 
-from kaleidoscope import qsphere
+from kaleidoscope import qsphere, bloch_multi_disc
 from qiskit import QuantumCircuit, execute, BasicAer
 from qiskit.visualization import plot_histogram, plot_state_city, plot_state_hinton, plot_state_qsphere, \
     plot_state_paulivec, plot_bloch_multivector
@@ -313,13 +313,39 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)):
     return current_user
 
 
+@app.post("/return-histogram")
+async def returnHistogram(request: Request):
+    try:
+        if exists("generatedBar.py"):
+            remove("generatedBar.py")
+        file = "generatedBar.py"
+        data = await request.body()
+        decoded = data.decode()
+        with open(file, "w") as f:
+            f.write(decoded)
+            f.write("""
+from qiskit import BasicAer
+backend = BasicAer.get_backend('statevector_simulator')
+job = execute(qc, backend=backend, shots=shots)
+job_result = job.result()
+counts = job_result.get_counts(qc) 
+            """)
+        import generatedBar
+        bar_data = [{'State': key, 'Probability': value} for key, value in generatedBar.counts.items()]
+        remove("generatedBar.py")
+        return bar_data
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @app.post("/return-qsphere", response_class=HTMLResponse)
 async def returnQSphere(request: Request):
     try:
-        if exists("generated.py"):
-            remove("generated.py")
-        file = "generated.py"
+        if exists("generatedSphere.py"):
+            remove("generatedSphere.py")
+        file = "generatedSphere.py"
         data = await request.body()
+        print(await request.body())
         decoded = data.decode()
         with open(file, "w") as f:
             f.write(decoded)
@@ -330,15 +356,41 @@ job = execute(qc, backend=backend, shots=shots)
 job_result = job.result()
 statevector = job_result.get_statevector()
             """)
-        import generated
-        fig = qsphere(generated.statevector, as_widget=True)
+        import generatedSphere
+        fig = qsphere(generatedSphere.statevector, as_widget=True)
         fig.update_layout(width=500, height=500)
         # htmlText = fig._fig.to_html(full_html=False,include_plotlyjs=False)
-        htmlText = fig.to_html(full_html=False, include_plotlyjs=False)
+        htmlText = fig.to_html(full_html=False, include_plotlyjs=False, div_id="bloch_sphere_return")
+        remove("generatedSphere.py")
         return htmlText
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+
+@app.post("/return-bloch-disc", response_class=HTMLResponse)
+async def returnBlochDisc(request: Request):
+    try:
+        if exists("generatedDisc.py"):
+            remove("generatedDisc.py")
+        file = "generatedDisc.py"
+        data = await request.body()
+        decoded = data.decode()
+        with open(file, "w") as f:
+            f.write(decoded)
+            f.write("""
+from qiskit import BasicAer
+import qiskit.quantum_info as qi            
+backend = BasicAer.get_backend('statevector_simulator')
+job = execute(qc, backend=backend, shots=shots)
+state = qi.Statevector(qc)
+        """)
+        import generatedDisc
+        fig = bloch_multi_disc(generatedDisc.state, as_widget=True)
+        htmlText = fig.to_html(full_html=False, include_plotlyjs=False, div_id="bloch_disc_return")
+        remove("generatedDisc.py")
+        return htmlText
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 # write qasm -> qiskit later
 @app.post("/test/sh")
