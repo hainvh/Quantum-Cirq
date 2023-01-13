@@ -1,5 +1,6 @@
 import json
 import re
+import subprocess
 import sys
 import time
 from datetime import timedelta, datetime
@@ -308,23 +309,26 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)):
 @app.post("/return-histogram")
 async def returnHistogram(request: Request):
     try:
-        if exists("generatedBar.py"):
-            remove("generatedBar.py")
-        file = "generatedBar.py"
+        # if exists("generatedBar.py"):
+        #     remove("generatedBar.py")
+        # file = "generatedBar.py"
         data = await request.body()
-        decoded = data.decode()
-        with open(file, "w") as f:
-            f.write(decoded)
-            f.write("""
-from qiskit import BasicAer
-backend = BasicAer.get_backend('statevector_simulator')
-job = execute(qc, backend=backend, shots=shots)
-job_result = job.result()
-counts = job_result.get_counts(qc) 
-            """)
-        import generatedBar
-        bar_data = [{'State': key, 'Probability': value} for key, value in generatedBar.counts.items()]
-        remove("generatedBar.py")
+        exec_result = exec(data)
+        counts = locals()['counts']
+        bar_data = [{'State': key, 'Probability': value} for key, value in counts.items()]
+#         decoded = data.decode()
+#         with open(file, "w") as f:
+#             f.write(decoded)
+#             f.write("""
+# from qiskit import BasicAer
+# backend = BasicAer.get_backend('statevector_simulator')
+# job = execute(qc, backend=backend, shots=shots)
+# job_result = job.result()
+# counts = job_result.get_counts(qc)
+#             """)
+#         import generatedBar
+#         bar_data = [{'State': key, 'Probability': value} for key, value in generatedBar.counts.items()]
+#         remove("generatedBar.py")
         return bar_data
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -333,27 +337,31 @@ counts = job_result.get_counts(qc)
 @app.post("/return-qsphere", response_class=HTMLResponse)
 async def returnQSphere(request: Request):
     try:
-        if exists("generatedSphere.py"):
-            remove("generatedSphere.py")
-        file = "generatedSphere.py"
+        # if exists("generatedSphere.py"):
+        #     remove("generatedSphere.py")
+        # file = "generatedSphere.py"
         data = await request.body()
-        decoded = data.decode()
-        with open(file, "w") as f:
-            f.write(decoded)
-            f.write("""
-from qiskit import BasicAer
-backend = BasicAer.get_backend('statevector_simulator')
-job = execute(qc, backend=backend, shots=shots)
-job_result = job.result()
-statevector = job_result.get_statevector()
-print(statevector)
-            """)
-        import generatedSphere
-        fig = qsphere(generatedSphere.statevector, as_widget=True)
+        # decoded = data.decode()
+        exec_result = exec(data)
+        fig = qsphere(locals()['statevector'], as_widget=True)
         fig.update_layout(width=500, height=500)
-        fig.show()
         htmlText = fig.to_html(full_html=False, include_plotlyjs=False, div_id="bloch-sphere-return")
-        # remove("generatedSphere.py")
+# Get data through secondary .py file. Doesn't work. Leave it alone in case come back and fix.
+#         with open(file, "w") as f:
+#             f.write(decoded)
+#             f.write("""
+# from qiskit import BasicAer
+# backend = BasicAer.get_backend('statevector_simulator')
+# job = execute(qc, backend=backend, shots=shots)
+# job_result = job.result()
+# statevector = job_result.get_statevector()
+#             """)
+#         import generatedSphere
+#         fig = qsphere(generatedSphere.statevector, as_widget=True)
+#         fig.update_layout(width=500, height=500)
+#         # fig.show()
+#         htmlText = fig.to_html(full_html=False, include_plotlyjs=False, div_id="bloch-sphere-return")
+#         remove("generatedSphere.py")
         return htmlText
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -362,27 +370,32 @@ print(statevector)
 @app.post("/return-bloch-disc", response_class=HTMLResponse)
 async def returnBlochDisc(request: Request):
     try:
-        if exists("generatedDisc.py"):
-            remove("generatedDisc.py")
-        file = "generatedDisc.py"
+        # if exists("generatedDisc.py"):
+        #     remove("generatedDisc.py")
+        # file = "generatedDisc.py"
         data = await request.body()
-        decoded = data.decode()
-        with open(file, "w") as f:
-            f.write(decoded)
-            f.write("""
-from qiskit import BasicAer
-import qiskit.quantum_info as qi            
-backend = BasicAer.get_backend('statevector_simulator')
-job = execute(qc, backend=backend, shots=shots)
-state = qi.Statevector(qc)
-        """)
-        import generatedDisc
-        fig = bloch_multi_disc(generatedDisc.state, as_widget=True)
-        htmlText = fig.to_html(full_html=False, include_plotlyjs=False, div_id="bloch_disc_return")
-        remove("generatedDisc.py")
+        exec_result = exec(data)
+        fig = bloch_multi_disc(locals()['state'], as_widget=True)
+        fig.update_layout(width=500, height=500)
+        htmlText = fig.to_html(full_html=False, include_plotlyjs=False, div_id="bloch-disc-return")
+#         decoded = data.decode()
+#         with open(file, "w") as f:
+#             f.write(decoded)
+#             f.write("""
+# from qiskit import BasicAer
+# import qiskit.quantum_info as qi
+# backend = BasicAer.get_backend('statevector_simulator')
+# job = execute(qc, backend=backend, shots=shots)
+# state = qi.Statevector(qc)
+#         """)
+#         import generatedDisc
+#         fig = bloch_multi_disc(generatedDisc.state, as_widget=True)
+#         htmlText = fig.to_html(full_html=False, include_plotlyjs=False, div_id="bloch_disc_return")
+#         remove("generatedDisc.py")
         return htmlText
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
 
 # write qasm -> qiskit later
 @app.post("/test/sh")
