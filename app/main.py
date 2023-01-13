@@ -12,11 +12,9 @@ from qiskit import QuantumCircuit, execute, BasicAer
 from qiskit.visualization import plot_histogram, plot_state_city, plot_state_hinton, plot_state_qsphere, \
     plot_state_paulivec, plot_bloch_multivector
 from qiskit_aer import Aer
-from qiskit_ibm_runtime import QiskitRuntimeService
 
 import app as app
 import cirq
-import script
 from cirq.contrib.qasm_import import circuit_from_qasm
 from fastapi import FastAPI, Request, Depends, HTTPException, status, UploadFile, File
 import uvicorn
@@ -27,7 +25,6 @@ from pydantic import BaseModel
 from fastapi.responses import HTMLResponse
 from quantastica.qps_api import QPS
 from fastapi.middleware.cors import CORSMiddleware
-from markupsafe import Markup
 
 
 app = FastAPI()
@@ -198,11 +195,6 @@ async def jsonToQASM(request: Request, current_user: User = Depends(get_current_
 async def jsonToQiskit(request: Request, current_user: User = Depends(get_current_active_user)):
     if current_user.disabled:
         raise HTTPException(status_code=400, detail="Inactive user")
-    # str = await request.json()
-    # c = cirq.quirk_json_to_circuit(str)
-    # qasm = cirq.qasm(c)
-    # qisk = QPS.converter.convert(qasm, "qasm", "qiskit")
-    # return qisk
     try:
         quirk_json = json.loads(await request.body())
         circuit = cirq.quirk_json_to_circuit(quirk_json)
@@ -345,7 +337,6 @@ async def returnQSphere(request: Request):
             remove("generatedSphere.py")
         file = "generatedSphere.py"
         data = await request.body()
-        print(await request.body())
         decoded = data.decode()
         with open(file, "w") as f:
             f.write(decoded)
@@ -355,13 +346,14 @@ backend = BasicAer.get_backend('statevector_simulator')
 job = execute(qc, backend=backend, shots=shots)
 job_result = job.result()
 statevector = job_result.get_statevector()
+print(statevector)
             """)
         import generatedSphere
         fig = qsphere(generatedSphere.statevector, as_widget=True)
         fig.update_layout(width=500, height=500)
-        # htmlText = fig._fig.to_html(full_html=False,include_plotlyjs=False)
-        htmlText = fig.to_html(full_html=False, include_plotlyjs=False, div_id="bloch_sphere_return")
-        remove("generatedSphere.py")
+        fig.show()
+        htmlText = fig.to_html(full_html=False, include_plotlyjs=False, div_id="bloch-sphere-return")
+        # remove("generatedSphere.py")
         return htmlText
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
