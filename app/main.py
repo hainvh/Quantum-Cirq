@@ -313,7 +313,8 @@ async def returnHistogram(request: Request):
         #     remove("generatedBar.py")
         # file = "generatedBar.py"
         data = await request.body()
-        exec_result = exec(data)
+        code_obj = compile(data, "<string>", "exec")
+        exec_result = exec(code_obj)
         counts = locals()['counts']
         bar_data = [{'State': key, 'Probability': value} for key, value in counts.items()]
 #         decoded = data.decode()
@@ -342,7 +343,8 @@ async def returnQSphere(request: Request):
         # file = "generatedSphere.py"
         data = await request.body()
         # decoded = data.decode()
-        exec_result = exec(data)
+        code_obj = compile(data, '<string>', 'exec')
+        exec_result = exec(code_obj)
         fig = qsphere(locals()['statevector'], as_widget=True)
         fig.update_layout(width=500, height=500)
         htmlText = fig.to_html(full_html=False, include_plotlyjs=False, div_id="bloch-sphere-return")
@@ -374,7 +376,8 @@ async def returnBlochDisc(request: Request):
         #     remove("generatedDisc.py")
         # file = "generatedDisc.py"
         data = await request.body()
-        exec_result = exec(data)
+        code_obj = compile(data, "<string>", "exec")
+        exec_result = exec(code_obj)
         fig = bloch_multi_disc(locals()['state'], as_widget=True)
         fig.update_layout(width=500, height=500)
         htmlText = fig.to_html(full_html=False, include_plotlyjs=False, div_id="bloch-disc-return")
