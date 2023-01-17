@@ -10,16 +10,17 @@ from qiskit_aer import Aer
 import app as app
 import cirq
 from cirq.contrib.qasm_import import circuit_from_qasm
-from fastapi import FastAPI, Request, Depends, HTTPException, status, UploadFile, File
+from fastapi import FastAPI, Request, Depends, HTTPException, status
 import uvicorn
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import jwt, JWTError
 from passlib.context import CryptContext
+from passlib.hash import bcrypt
 from pydantic import BaseModel
 from fastapi.responses import HTMLResponse
 from quantastica.qps_api import QPS
 from fastapi.middleware.cors import CORSMiddleware
-
+import loginCredentials
 
 app = FastAPI()
 
@@ -33,21 +34,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 # Authentication
 SECRET_KEY = "963961892d0951644b3ed952deeef2ad6d77717822718dc4144ab06c63fca51a"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 24*60
-# QiskitRuntimeService.save_account(channel="ibm_quantum", token="7dc70fd10ae119499c27f664f114ad5527b4975c57be4074677d921f8f2e60bf7b4732f46e936edb0a84f4df8d6e09b8efadbd25b19fc9971e76cf197c6c8093")
-
+ACCESS_TOKEN_EXPIRE_MINUTES = 24 * 60
 
 # username: username
-# password: secret
+# password: secret; change the password here
+password = loginCredentials.password
 fake_user = {
     "username": {
-        "username": "username",
+        "username": loginCredentials.username,
         "email": "a@example.com",
-        "hashed_password": "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW",
+        "hashed_password": bcrypt.hash(password),
         "disabled": False
     }
 }
@@ -75,14 +74,12 @@ class UserInDB(User):
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+
 # End of auth
 
 class Item(BaseModel):  # kế thừa từ class Basemodel và khai báo các biến
     link: str
-
-
-class UploadText(BaseModel):
-    data: str = ""
 
 
 def verify_password(plain_pass, hashed_pass):
@@ -145,14 +142,12 @@ async def get_current_active_user(current_user: User = Depends(get_current_user)
     return current_user
 
 
-@app.get("/")
-async def root():
-    return {"message": "Hello World"}
-
-
-@app.get("/{name}")
-async def read_item(name):
-    return {"name": name}
+"""
+    Endpoint to convert Quirk JSON to OpenQASM 2.0. Convert from JSON to Cirq to OpenQASM.
+    
+    The JSON gates S, S-dagger, T, T-dagger and any control gates such as CH are specifically changed to match 
+    conventional OpenQASM language.
+"""
 
 
 @app.post("/json-to-qasm", response_class=HTMLResponse)
@@ -183,18 +178,11 @@ async def jsonToQASM(request: Request):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@app.post("/json-to-qiskit", response_class=HTMLResponse)
-async def jsonToQiskit(request: Request, current_user: User = Depends(get_current_active_user)):
-    if current_user.disabled:
-        raise HTTPException(status_code=400, detail="Inactive user")
-    try:
-        quirk_json = json.loads(await request.body())
-        circuit = cirq.quirk_json_to_circuit(quirk_json)
-        qasm = cirq.qasm(circuit)
-        qiskit_code = QPS.converter.convert(qasm, "qasm", "qiskit")
-        return qiskit_code
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+"""
+    Endpoint to convert OpenQASM 2.0 to Qiskit.
+    QASM to Qiskit code converted using Quantastica's QPS converter. 
+    QPS automatically adds a Qiskit backend run function, which is removed here to use other run functions.
+"""
 
 
 @app.post("/qasm-to-qiskit", response_class=HTMLResponse)
@@ -213,15 +201,11 @@ async def qasmToQiskit(data: Request, current_user: User = Depends(get_current_a
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@app.post("/qasm-file-to-qiskit", response_class=HTMLResponse)
-async def qasmFileToQiskit(file: UploadFile = File(...)):
-    try:
-        contents = file.file.read()
-        decoded = contents.decode("utf-8")
-        qiskitc = QPS.converter.convert(decoded, "qasm", "qiskit")
-        return qiskitc
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+"""
+    Endpoint to convert OpenQASM 2.0 to Quirk JSON. Convert from QASM to Cirq to JSON.
+    The QASM gates S, S-dagger, T, T-dagger, Y^1/2, Y^-1/2, X^1/2, X^-1/2, Y^1/4, Y^-1/4, X^1/4, X^-1/4 are
+    specifically converted to the correct JSON format.
+"""
 
 
 @app.post("/qasm-to-json", response_class=HTMLResponse)
@@ -252,7 +236,12 @@ async def qasmToJson(request: Request, current_user: User = Depends(get_current_
         raise HTTPException(status_code=400, detail=str(e))
 
 
-# can swap different results in or make more api for results depend on what is needed
+"""
+    Endpoint to run OpenQASM 2.0 code on a Qiskit backend. Uses the 'qasm_simulator' backend and return qubit counts.
+    Currently a placeholder. Can be changed to desired result given more in-depth specifications.
+"""
+
+
 @app.post("/qasm-qiskit-run")
 async def qasmQiskitRun(request: Request):
     qasm = await request.body()
@@ -264,6 +253,11 @@ async def qasmQiskitRun(request: Request):
     result = job_result.get_counts(qc)
 
     return result
+
+
+"""
+    Endpoint to verify user's login credential. Change the credentials in 'loginCredentials.py'.
+"""
 
 
 @app.post("/token", response_model=Token)
@@ -282,9 +276,11 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-@app.get("/users/me/", response_model=User)
-async def read_users_me(current_user: User = Depends(get_current_active_user)):
-    return current_user
+"""
+    Endpoint to return data to draw a histogram for the frontend bar chart. 
+    Takes Qiskit code and execute it to return the resulting counts. The counts are then filtered into key: value pairs,
+    converted to JSON and then returned to the frontend for processing.
+"""
 
 
 @app.post("/return-histogram", response_class=HTMLResponse)
@@ -297,26 +293,33 @@ async def returnHistogram(request: Request):
         code_obj = compile(data, '<string>', 'exec')
         exec_result = exec(code_obj)
         bit_counts = locals()['counts']
-        bar_data = [{'State': key, 'Probability': value/10} for key, value in bit_counts.items()]
+        bar_data = [{'State': key, 'Probability': value / 10} for key, value in bit_counts.items()]
         for d in bar_data:
             d['State'] = "".join(d['State'].split())
             d['Probability'] = str(d['Probability'])
-#         decoded = data.decode()
-#         with open(file, "w") as f:
-#             f.write(decoded)
-#             f.write("""
-# from qiskit import BasicAer
-# backend = BasicAer.get_backend('statevector_simulator')
-# job = execute(qc, backend=backend, shots=shots)
-# job_result = job.result()
-# counts = job_result.get_counts(qc)
-#             """)
-#         import generatedBar
-#         bar_data = [{'State': key, 'Probability': value} for key, value in generatedBar.counts.items()]
-#         remove("generatedBar.py")
+        #         decoded = data.decode()
+        #         with open(file, "w") as f:
+        #             f.write(decoded)
+        #             f.write("""
+        # from qiskit import BasicAer
+        # backend = BasicAer.get_backend('statevector_simulator')
+        # job = execute(qc, backend=backend, shots=shots)
+        # job_result = job.result()
+        # counts = job_result.get_counts(qc)
+        #             """)
+        #         import generatedBar
+        #         bar_data = [{'State': key, 'Probability': value} for key, value in generatedBar.counts.items()]
+        #         remove("generatedBar.py")
         return json.dumps(bar_data)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+"""
+    Endpoint to return data to draw a qsphere for the frontend bar chart. 
+    Takes Qiskit code and execute it to return a PlotlyWidget object.
+    The object is then converted to HTML text and is returned to the frontend.
+"""
 
 
 @app.post("/return-qsphere", response_class=HTMLResponse)
@@ -332,25 +335,32 @@ async def returnQSphere(request: Request):
         fig = qsphere(locals()['statevector'], as_widget=True)
         fig.update_layout(width=400, height=400)
         htmlText = fig.to_html(full_html=False, include_plotlyjs=False, div_id="bloch-sphere-return")
-# Get data through secondary .py file. Doesn't work. Leave it alone in case come back and fix.
-#         with open(file, "w") as f:
-#             f.write(decoded)
-#             f.write("""
-# from qiskit import BasicAer
-# backend = BasicAer.get_backend('statevector_simulator')
-# job = execute(qc, backend=backend, shots=shots)
-# job_result = job.result()
-# statevector = job_result.get_statevector()
-#             """)
-#         import generatedSphere
-#         fig = qsphere(generatedSphere.statevector, as_widget=True)
-#         fig.update_layout(width=500, height=500)
-#         # fig.show()
-#         htmlText = fig.to_html(full_html=False, include_plotlyjs=False, div_id="bloch-sphere-return")
-#         remove("generatedSphere.py")
+        # Get data through secondary .py file. Doesn't work. Leave it alone in case come back and fix.
+        #         with open(file, "w") as f:
+        #             f.write(decoded)
+        #             f.write("""
+        # from qiskit import BasicAer
+        # backend = BasicAer.get_backend('statevector_simulator')
+        # job = execute(qc, backend=backend, shots=shots)
+        # job_result = job.result()
+        # statevector = job_result.get_statevector()
+        #             """)
+        #         import generatedSphere
+        #         fig = qsphere(generatedSphere.statevector, as_widget=True)
+        #         fig.update_layout(width=500, height=500)
+        #         # fig.show()
+        #         htmlText = fig.to_html(full_html=False, include_plotlyjs=False, div_id="bloch-sphere-return")
+        #         remove("generatedSphere.py")
         return htmlText
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+"""
+    Endpoint to return data to draw a multi-disc for the frontend bar chart. 
+    Takes Qiskit code and execute it to return a PlotlyWidget object.
+    The object is then converted to HTML text and is returned to the frontend.
+"""
 
 
 @app.post("/return-bloch-disc", response_class=HTMLResponse)
@@ -366,20 +376,20 @@ async def returnBlochDisc(request: Request):
         fig = bloch_multi_disc(locals()['statevector'], as_widget=True)
         fig.update_layout(width=500, height=500)
         htmlText = fig.to_html(full_html=False, include_plotlyjs=False, div_id="bloch-disc-return")
-#         decoded = data.decode()
-#         with open(file, "w") as f:
-#             f.write(decoded)
-#             f.write("""
-# from qiskit import BasicAer
-# import qiskit.quantum_info as qi
-# backend = BasicAer.get_backend('statevector_simulator')
-# job = execute(qc, backend=backend, shots=shots)
-# state = qi.Statevector(qc)
-#         """)
-#         import generatedDisc
-#         fig = bloch_multi_disc(generatedDisc.state, as_widget=True)
-#         htmlText = fig.to_html(full_html=False, include_plotlyjs=False, div_id="bloch_disc_return")
-#         remove("generatedDisc.py")
+        #         decoded = data.decode()
+        #         with open(file, "w") as f:
+        #             f.write(decoded)
+        #             f.write("""
+        # from qiskit import BasicAer
+        # import qiskit.quantum_info as qi
+        # backend = BasicAer.get_backend('statevector_simulator')
+        # job = execute(qc, backend=backend, shots=shots)
+        # state = qi.Statevector(qc)
+        #         """)
+        #         import generatedDisc
+        #         fig = bloch_multi_disc(generatedDisc.state, as_widget=True)
+        #         htmlText = fig.to_html(full_html=False, include_plotlyjs=False, div_id="bloch_disc_return")
+        #         remove("generatedDisc.py")
         return htmlText
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
