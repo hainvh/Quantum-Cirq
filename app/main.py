@@ -254,7 +254,8 @@ async def qasmToJson(request: Request, current_user: User = Depends(get_current_
         '{"arg":"%280.5000%29%20pi","id":"Rxft"}': '"X^½"', '{"arg":"%28-0.5000%29%20pi","id":"Rxft"}': '"X^-½"',
         '{"arg":"%280.2500%29%20pi","id":"Rzft"}': '"Z^¼"', '{"arg":"%28-0.2500%29%20pi","id":"Rzft"}': '"Z^-¼"',
         '{"arg":"%280.2500%29%20pi","id":"Ryft"}': '"Y^¼"', '{"arg":"%28-0.2500%29%20pi","id":"Ryft"}': '"Y^-¼"',
-        '{"arg":"%280.2500%29%20pi","id":"Rxft"}': '"X^¼"', '{"arg":"%28-0.2500%29%20pi","id":"Rxft"}': '"X^-¼"'
+        '{"arg":"%280.2500%29%20pi","id":"Rxft"}': '"X^¼"', '{"arg":"%28-0.2500%29%20pi","id":"Rxft"}': '"X^-¼"',
+        'Z%5E%C2%BD': 'Z^½', 'Z%5E-%C2%BD': 'Z^-½', 'Z%5E%C2%BC': 'Z^¼', 'Z%5E-%C2%BC': 'Z^-¼'
     }
     try:
         qasm = await request.body()
@@ -304,17 +305,20 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)):
     return current_user
 
 
-@app.post("/return-histogram")
+@app.post("/return-histogram", response_class=HTMLResponse)
 async def returnHistogram(request: Request):
     try:
         # if exists("generatedBar.py"):
         #     remove("generatedBar.py")
         # file = "generatedBar.py"
         data = await request.body()
-        code_obj = compile(data, "<string>", "exec")
+        code_obj = compile(data, '<string>', 'exec')
         exec_result = exec(code_obj)
-        counts = locals()['counts']
-        bar_data = [{'State': key, 'Probability': value} for key, value in counts.items()]
+        bit_counts = locals()['counts']
+        bar_data = [{'State': key, 'Probability': value/10} for key, value in bit_counts.items()]
+        for d in bar_data:
+            d['State'] = "".join(d['State'].split())
+            d['Probability'] = str(d['Probability'])
 #         decoded = data.decode()
 #         with open(file, "w") as f:
 #             f.write(decoded)
@@ -328,7 +332,7 @@ async def returnHistogram(request: Request):
 #         import generatedBar
 #         bar_data = [{'State': key, 'Probability': value} for key, value in generatedBar.counts.items()]
 #         remove("generatedBar.py")
-        return bar_data
+        return json.dumps(bar_data)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -374,9 +378,10 @@ async def returnBlochDisc(request: Request):
         #     remove("generatedDisc.py")
         # file = "generatedDisc.py"
         data = await request.body()
-        code_obj = compile(data, "<string>", "exec")
+        # decoded = data.decode()
+        code_obj = compile(data, '<string>', 'exec')
         exec_result = exec(code_obj)
-        fig = bloch_multi_disc(locals()['state'], as_widget=True)
+        fig = bloch_multi_disc(locals()['statevector'], as_widget=True)
         fig.update_layout(width=500, height=500)
         htmlText = fig.to_html(full_html=False, include_plotlyjs=False, div_id="bloch-disc-return")
 #         decoded = data.decode()
