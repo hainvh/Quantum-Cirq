@@ -1,4 +1,4 @@
-python_version == 3.10
+python_version >= 3.10 and python_version < 3.11
 cirq==0.10.0
 fastapi~=0.68.2
 passlib==1.7.4
