@@ -1,17 +1,10 @@
 import json
 import re
-import subprocess
-import sys
-import time
 from datetime import timedelta, datetime
-from os import remove
-from os.path import exists
 from typing import List, Union
 
 from kaleidoscope import qsphere, bloch_multi_disc
 from qiskit import QuantumCircuit, execute, BasicAer
-from qiskit.visualization import plot_histogram, plot_state_city, plot_state_hinton, plot_state_qsphere, \
-    plot_state_paulivec, plot_bloch_multivector
 from qiskit_aer import Aer
 
 import app as app
@@ -233,18 +226,6 @@ async def qasmFileToQiskit(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@app.post("/qasm-file-to-json", response_class=HTMLResponse)
-async def qasmFileToJson(file: UploadFile = File(...)):
-    try:
-        contents = file.file.read()
-        decoded = contents.decode("utf-8")
-        cirqJson = circuit_from_qasm(decoded)
-        json = cirq.contrib.quirk.circuit_to_quirk_url(cirqJson)
-        return json
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
 @app.post("/qasm-to-json", response_class=HTMLResponse)
 async def qasmToJson(request: Request, current_user: User = Depends(get_current_active_user)):
     if current_user.disabled:
@@ -273,6 +254,7 @@ async def qasmToJson(request: Request, current_user: User = Depends(get_current_
         raise HTTPException(status_code=400, detail=str(e))
 
 
+# can swap different results in or make more api for results depend on what is needed
 @app.post("/qasm-qiskit-run")
 async def qasmQiskitRun(request: Request):
     qasm = await request.body()
@@ -403,29 +385,6 @@ async def returnBlochDisc(request: Request):
         return htmlText
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-
-
-# write qasm -> qiskit later
-@app.post("/test/sh")
-async def shTest(request: Request):
-    if exists("generated.py"):
-        remove("generated.py")
-    fname = 'generated.py'
-    data = await request.body()
-    decoded = data.decode()
-    with open(fname, 'w') as f:
-        f.write(decoded)
-    import generated
-    # data = generated.job_result.get_counts(generated.qc)
-    # plot_histogram(generated.count, title='Bell-State Counts')
-    plot_state_city(generated.psi).savefig('out.png')
-    plot_state_hinton(generated.psi).savefig('hinton.png')
-    plot_state_qsphere(generated.psi).savefig("sphere.png") # 4 is decent
-    plot_state_paulivec(generated.psi).savefig("paulivec.png")
-    plot_bloch_multivector(generated.psi).savefig("bloch.png") # 4 is decent
-
-    remove("generated.py")
-    return data
 
 
 if __name__ == "__main__":
