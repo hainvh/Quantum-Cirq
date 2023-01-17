@@ -156,9 +156,7 @@ async def read_item(name):
 
 
 @app.post("/json-to-qasm", response_class=HTMLResponse)
-async def jsonToQASM(request: Request, current_user: User = Depends(get_current_active_user)):
-    if current_user.disabled:
-        raise HTTPException(status_code=400, detail="Inactive user")
+async def jsonToQASM(request: Request):
     j2q_dict = {
         "rz(pi*0.5)": "s", "rz(pi*-0.5)": "sdg",
         "rz(pi*0.25)": "t", "rz(pi*-0.25)": "tdg"
@@ -332,7 +330,7 @@ async def returnQSphere(request: Request):
         code_obj = compile(data, '<string>', 'exec')
         exec_result = exec(code_obj)
         fig = qsphere(locals()['statevector'], as_widget=True)
-        fig.update_layout(width=500, height=500)
+        fig.update_layout(width=400, height=400)
         htmlText = fig.to_html(full_html=False, include_plotlyjs=False, div_id="bloch-sphere-return")
 # Get data through secondary .py file. Doesn't work. Leave it alone in case come back and fix.
 #         with open(file, "w") as f:
