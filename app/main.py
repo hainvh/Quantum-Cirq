@@ -1,9 +1,11 @@
+import hashlib
 import json
 import re
 from datetime import timedelta, datetime
 from typing import List, Union
 
 from kaleidoscope import qsphere, bloch_multi_disc
+from psycopg2 import connect
 from qiskit import QuantumCircuit, execute, BasicAer
 from qiskit_aer import Aer
 
@@ -33,6 +35,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# There are 2 types of authentication in use. Currently, the authentication used is based on DB connection and verification.
+# The internal hard-coded credentials can also be used by changing the variable as needed.
+
+# ConnectDB
+DATABASE_URL = "postgres://root:root@localhost:5432/dolphinscheduler"
 
 # Authentication
 SECRET_KEY = "963961892d0951644b3ed952deeef2ad6d77717822718dc4144ab06c63fca51a"
@@ -96,13 +104,27 @@ def get_user(db, username: str):
         return UserInDB(**user_dict)
 
 
-def authenticate_user(fake_db, username: str, password: str):
-    user = get_user(fake_db, username)
-    if not user:
-        return False
-    if not verify_password(password, user.hashed_password):
-        return False
-    return user
+# def authenticate_user(fake_db, username: str, password: str):
+#     user = get_user(fake_db, username)
+#     if not user:
+#         return False
+#     if not verify_password(password, user.hashed_password):
+#         return False
+#     return user
+
+def authenticate_user(username: str, password: str):
+    conn = connect(DATABASE_URL)
+    cursor = conn.cursor()
+    cursor.execute("SELECT user_password FROM t_ds_user WHERE user_name = %s", (username,))
+    db_password = cursor.fetchone()
+    conn.close()
+    if not db_password:
+        raise HTTPException(status_code=400, detail="Incorrect username or password")
+    password_hashed = hashlib.md5(password.encode()).hexdigest()
+    if db_password[0] == password_hashed:
+        return True
+    else:
+        raise HTTPException(status_code=400, detail="Incorrect username or password")
 
 
 def create_access_token(data: dict, expires_delta: Union[timedelta, None] = None):
@@ -182,6 +204,7 @@ async def jsonToQASM(request: Request):
     Endpoint to convert OpenQASM 2.0 to Qiskit.
     QASM to Qiskit code converted using Quantastica's QPS converter. 
     QPS automatically adds a Qiskit backend run function, which is removed here to use other run functions.
+    Not used. Replaced by quantum-circuit.js frontend.
 """
 
 
@@ -262,7 +285,8 @@ async def qasmQiskitRun(request: Request):
 
 @app.post("/token", response_model=Token)
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
-    user = authenticate_user(fake_user, form_data.username, form_data.password)
+    # user = authenticate_user(fake_user, form_data.username, form_data.password)
+    user = authenticate_user(form_data.username, form_data.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -271,7 +295,7 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
         )
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
+        data={"sub": form_data.username}, expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
