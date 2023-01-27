@@ -3,6 +3,7 @@ import re
 from datetime import timedelta, datetime
 from typing import List, Union
 
+import numpy as np
 from kaleidoscope import qsphere, bloch_multi_disc
 from qiskit import QuantumCircuit, execute, BasicAer
 from qiskit_aer import Aer
@@ -341,8 +342,17 @@ async def returnQSphere(request: Request):
         qcheck = re.search(r'QuantumRegister\((\d+)', data2)
         if qcheck:
             number = int(qcheck.group(1))
+            error_notification = '<div data-v-45f28762="" class="inline-notification error"><svg data-v-45f28762="" ' \
+                                 'width="24" height="24" viewBox="0 0 32 32" class="duo--Icon duo--IconError ' \
+                                 'icon"><path d="M2 16c0 7.7 6.3 14 14 14s14-6.3 14-14S23.7 2 16 2 2 8.3 2 16zm23.1 ' \
+                                 '7.7L8.3 6.9C10.4 5 13.2 4 16 4c6.6 0 12 5.4 12 12 0 2.8-1 5.6-2.9 7.7zM8.2 ' \
+                                 '25.2c-5-4.3-5.6-11.9-1.4-16.9l16.9 16.9C21.6 27 18.8 28 16 ' \
+                                 '28s-5.6-1-7.8-2.8z"></path></svg> <div data-v-45f28762="" class="flex-1"><ul ' \
+                                 'data-v-078d4a79="" data-v-45f28762=""><li data-v-078d4a79=""> The q-sphere ' \
+                                 'simulation is only available for circuits using fewer than 6 qubits. Adjust your '\
+                                 'circuit to view it. </li></ul></div></div> '
             if number > 5:
-                return "Can not process more than 5 qubits"
+                return error_notification
         # decoded = data.decode()
         check1 = "from qiskit import QuantumRegister, ClassicalRegister"
         check2 = "from qiskit import QuantumCircuit, execute, Aer"
@@ -416,6 +426,42 @@ async def returnBlochDisc(request: Request):
         #         htmlText = fig.to_html(full_html=False, include_plotlyjs=False, div_id="bloch_disc_return")
         #         remove("generatedDisc.py")
         return htmlText
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+"""
+    Endpoint to return data to populate the simulation table in the Simulate tab.
+"""
+@app.post("/return-sim-data")
+async def returnSimData(request: Request):
+    try:
+        data = await request.body()
+        check1 = "from qiskit import QuantumRegister, ClassicalRegister"
+        check2 = "from qiskit import QuantumCircuit, execute, Aer"
+        if data.splitlines()[0] == check1.encode() and data.splitlines()[1] == check2.encode():
+            code_obj = compile(data, '<string>', 'exec')
+            exec_result = exec(code_obj)
+        else:
+            return "Upload code error"
+        svect = locals()['statevector']
+        qStates = {}
+        qVectorPre = {}
+        qVector = {}
+        qPhase = {}
+        qProb = {}
+        svect2 = np.array(svect)
+        for i in range(len(svect)):
+            qVectorPre[i] = svect[i]
+            state = np.binary_repr(i)
+            qStates[i] = state
+            angle = np.angle(svect[i])
+            qPhase[i] = angle
+            prob = np.abs(svect[i])**2*100
+            qProb[i] = prob
+        for key, value in qVectorPre.items():
+            qVector[key] = {"real": round(value.real, 10), "imag": value.imag}
+        return {'qStates': qStates, 'qVector': qVector, 'qPhase': qPhase, 'qProb': qProb}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
