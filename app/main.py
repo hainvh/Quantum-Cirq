@@ -226,7 +226,7 @@ async def qasmToJson(request: Request, current_user: User = Depends(get_current_
         qasm = await request.body()
         decoded = qasm.decode("utf-8")
         cirqJson = circuit_from_qasm(decoded)
-        json = cirq.contrib.quirk.circuit_to_quirk_url(cirqJson)
+        json = cirq.contrib.quirk.circuit_to_quirk_url(cirqJson, escape_url=False)
         jsonQuirk = json[35:len(json)]
         for key in q2j_dict:
             if key in jsonQuirk:
@@ -343,8 +343,9 @@ async def returnQSphere(request: Request):
         else:
             return "Upload code error"
         fig = qsphere(locals()['statevector'], as_widget=True)
-        fig.update_layout(width=400, height=400)
-        htmlText = fig.to_html(full_html=False, include_plotlyjs=False, div_id="bloch-sphere-return")
+        fig.update_layout(width=800, height=800)
+        htmlText = fig.to_html(full_html=False, include_plotlyjs=False, div_id="bloch-sphere-return",
+                               config=dict(displayModeBar=False))
         # Get data through secondary .py file. Doesn't work. Leave it alone in case come back and fix.
         #         with open(file, "w") as f:
         #             f.write(decoded)
