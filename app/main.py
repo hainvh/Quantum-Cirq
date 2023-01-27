@@ -280,6 +280,7 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     Endpoint to return data to draw a histogram for the frontend bar chart. 
     Takes Qiskit code and execute it to return the resulting counts. The counts are then filtered into key: value pairs,
     converted to JSON and then returned to the frontend for processing.
+    Code will check the first 2 lines of the sent request and verify it to be qiskit code before executing.
 """
 
 
@@ -324,6 +325,8 @@ async def returnHistogram(request: Request):
     Endpoint to return data to draw a qsphere for the frontend bar chart. 
     Takes Qiskit code and execute it to return a PlotlyWidget object.
     The object is then converted to HTML text and is returned to the frontend.
+    Code will check how many qubits there are, and stop running if the number of qubit exceed 5.
+    Code will check the first 2 lines of the sent request and verify it to be qiskit code before executing.
 """
 
 
@@ -334,6 +337,12 @@ async def returnQSphere(request: Request):
         #     remove("generatedSphere.py")
         # file = "generatedSphere.py"
         data = await request.body()
+        data2 = data.decode()
+        qcheck = re.search(r'QuantumRegister\((\d+)', data2)
+        if qcheck:
+            number = int(qcheck.group(1))
+            if number > 5:
+                return "Can not process more than 5 qubits"
         # decoded = data.decode()
         check1 = "from qiskit import QuantumRegister, ClassicalRegister"
         check2 = "from qiskit import QuantumCircuit, execute, Aer"
