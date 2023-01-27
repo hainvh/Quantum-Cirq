@@ -290,8 +290,13 @@ async def returnHistogram(request: Request):
         #     remove("generatedBar.py")
         # file = "generatedBar.py"
         data = await request.body()
-        code_obj = compile(data, '<string>', 'exec')
-        exec_result = exec(code_obj)
+        check1 = "from qiskit import QuantumRegister, ClassicalRegister"
+        check2 = "from qiskit import QuantumCircuit, execute, Aer"
+        if data.splitlines()[0] == check1.encode() and data.splitlines()[1] == check2.encode():
+            code_obj = compile(data, '<string>', 'exec')
+            exec_result = exec(code_obj)
+        else:
+            return "Upload code error"
         bit_counts = locals()['counts']
         bar_data = [{'State': key, 'Probability': value / 10} for key, value in bit_counts.items()]
         for d in bar_data:
@@ -330,8 +335,13 @@ async def returnQSphere(request: Request):
         # file = "generatedSphere.py"
         data = await request.body()
         # decoded = data.decode()
-        code_obj = compile(data, '<string>', 'exec')
-        exec_result = exec(code_obj)
+        check1 = "from qiskit import QuantumRegister, ClassicalRegister"
+        check2 = "from qiskit import QuantumCircuit, execute, Aer"
+        if data.splitlines()[0] == check1.encode() and data.splitlines()[1] == check2.encode():
+            code_obj = compile(data, '<string>', 'exec')
+            exec_result = exec(code_obj)
+        else:
+            return "Upload code error"
         fig = qsphere(locals()['statevector'], as_widget=True)
         fig.update_layout(width=400, height=400)
         htmlText = fig.to_html(full_html=False, include_plotlyjs=False, div_id="bloch-sphere-return")
@@ -371,8 +381,13 @@ async def returnBlochDisc(request: Request):
         # file = "generatedDisc.py"
         data = await request.body()
         # decoded = data.decode()
-        code_obj = compile(data, '<string>', 'exec')
-        exec_result = exec(code_obj)
+        check1 = "from qiskit import QuantumRegister, ClassicalRegister"
+        check2 = "from qiskit import QuantumCircuit, execute, Aer"
+        if data.splitlines()[0] == check1.encode() and data.splitlines()[1] == check2.encode():
+            code_obj = compile(data, '<string>', 'exec')
+            exec_result = exec(code_obj)
+        else:
+            return "Upload code error"
         fig = bloch_multi_disc(locals()['statevector'], as_widget=True)
         fig.update_layout(width=500, height=500)
         htmlText = fig.to_html(full_html=False, include_plotlyjs=False, div_id="bloch-disc-return")
