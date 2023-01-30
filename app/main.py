@@ -174,6 +174,8 @@ async def jsonToQASM(request: Request):
         for key in j2q_dict:
             if key in qasm:
                 qasm = qasm.replace(key, j2q_dict[key])
+        code_to_remove = '// Generated from Cirq v0.10.0\n\n'
+        qasm = qasm.replace(code_to_remove, '')
         return qasm
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -195,7 +197,8 @@ async def qasmToQiskit(data: Request, current_user: User = Depends(get_current_a
         decoded = qasm.decode("utf-8")
         qiskitc = QPS.converter.convert(decoded, "qasm", "qiskit")
         # don't change the code_to_remove it breaks the .replace
-        code_to_remove = "backend = Aer.get_backend('qasm_simulator')\njob = execute(qc, backend=backend, shots=shots)\njob_result = job.result()\nprint(job_result.get_counts(qc))"
+        code_to_remove = "backend = Aer.get_backend('qasm_simulator')\njob = execute(qc, backend=backend, " \
+                         "shots=shots)\njob_result = job.result()\nprint(job_result.get_counts(qc))"
         qiskitc = qiskitc.replace(code_to_remove, "")
         return qiskitc
     except Exception as e:
@@ -221,7 +224,11 @@ async def qasmToJson(request: Request, current_user: User = Depends(get_current_
         '{"arg":"%280.2500%29%20pi","id":"Rzft"}': '"Z^¼"', '{"arg":"%28-0.2500%29%20pi","id":"Rzft"}': '"Z^-¼"',
         '{"arg":"%280.2500%29%20pi","id":"Ryft"}': '"Y^¼"', '{"arg":"%28-0.2500%29%20pi","id":"Ryft"}': '"Y^-¼"',
         '{"arg":"%280.2500%29%20pi","id":"Rxft"}': '"X^¼"', '{"arg":"%28-0.2500%29%20pi","id":"Rxft"}': '"X^-¼"',
-        'Z%5E%C2%BD': 'Z^½', 'Z%5E-%C2%BD': 'Z^-½', 'Z%5E%C2%BC': 'Z^¼', 'Z%5E-%C2%BC': 'Z^-¼'
+        'Z%5E%C2%BD': 'Z^½', 'Z%5E-%C2%BD': 'Z^-½', 'Z%5E%C2%BC': 'Z^¼', 'Z%5E-%C2%BC': 'Z^-¼',
+        '{"arg":"(0.5000) pi","id":"Ryft"}': '"Y^½"', '{"arg":"(-0.5000) pi","id":"Ryft"}': '"Y^-½"',
+        '{"arg":"(0.5000) pi","id":"Rxft"}': '"X^½"', '{"arg":"(-0.5000) pi","id":"Rxft"}': '"X^-½"',
+        '{"arg":"(0.2500) pi","id":"Ryft"}': '"Y^¼"', '{"arg":"(-0.2500) pi","id":"Ryft"}': '"Y^-¼"',
+        '{"arg":"(0.2500) pi","id":"Rxft"}': '"X^¼"', '{"arg":"(-0.2500) pi","id":"Rxft"}': '"X^-¼"'
     }
     try:
         qasm = await request.body()
